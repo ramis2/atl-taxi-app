@@ -20,3 +20,6 @@ Thumbs.db
 .env 
 .env.txt 
 *.txt 
+.env 
+.env.txt 
+*.txt 
