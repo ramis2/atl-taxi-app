@@ -1,0 +1,8 @@
+.destination-marker {
+    background: #9b59b6;
+    border: 2px solid white;
+    border-radius: 50%;
+    width: 16px;
+    height: 16px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+}

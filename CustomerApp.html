@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaxiGo Driver</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f8f9fa;
+        }
+
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            background: white;
+            min-height: 100vh;
+            position: relative;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #2c3e50, #3498db);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            position: relative;
+        }
+
+        .driver-status {
+            margin-top: 15px;
+        }
+
+        .status-toggle {
+            background: #27ae60;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .status-toggle.offline {
+            background: #e74c3c;
+        }
+
+        /* Map */
+        .map-container {
+            height: 300px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            position: relative;
+        }
+
+        /* Ride Request */
+        .ride-request {
+            background: white;
+            margin: 20px;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            display: none;
+        }
+
+        .ride-info {
+            margin-bottom: 15px;
+        }
+
+        .location {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+        }
+
+        .location i {
+            margin-right: 15px;
+            width: 20px;
+            text-align: center;
+        }
+
+        .pickup i { color: #27ae60; }
+        .destination i { color: #e74c3c; }
+
+        .action-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .accept-btn {
+            background: #27ae60;
+            color: white;
+            border: none;
+            padding: 15px;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .reject-btn {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 15px;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        /* Active Ride */
+        .active-ride {
+            background: white;
+            margin: 20px;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            display: none;
+        }
+
+        .customer-info {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .customer-avatar {
+            width: 50px;
+            height: 50px;
+            background: #3498db;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            margin-right: 15px;
+        }
+
+        .ride-controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        /* Earnings */
+        .earnings-card {
+            background: white;
+            margin: 20px;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .earning-item {
+            display: flex;
+            justify-content: space-between;
+            margin: 10px 0;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        /* Bottom Nav */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            max-width: 400px;
+            background: white;
+            display: flex;
+            justify-content: space-around;
+            padding: 15px 0;
+            border-top: 1px solid #e9ecef;
+        }
+
+        .nav-item {
+            text-align: center;
+            color: #6c757d;
+            cursor: pointer;
+        }
+
+        .nav-item.active {
+            color: #3498db;
+        }
+
+        .nav-item i {
+            font-size: 20px;
+            margin-bottom: 5px;
+        }
+
+        .nav-text {
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>TaxiGo Driver</h1>
+            <div class="driver-status">
+                <button class="status-toggle" id="statusToggle" onclick="toggleStatus()">
+                    <i class="fas fa-circle"></i> ONLINE
+                </button>
+            </div>
+        </div>
+
+        <!-- Map -->
+        <div class="map-container" id="map">
+            <div style="color: white; text-align: center; padding-top: 120px;">
+                <i class="fas fa-car" style="font-size: 48px; margin-bottom: 20px;"></i>
+                <p>Waiting for ride requests...</p>
+            </div>
+        </div>
+
+        <!-- Ride Request -->
+        <div class="ride-request" id="rideRequest">
+            <h3>New Ride Request</h3>
+            <div class="ride-info">
+                <div class="location pickup">
+                    <i class="fas fa-circle"></i>
+                    <span id="pickupLocation">123 Main Street</span>
+                </div>
+                <div class="location destination">
+                    <i class="fas fa-map-marker-alt"></i>
+                    <span id="destinationLocation">456 Downtown Ave</span>
+                </div>
+                <div class="fare-estimate">
+                    <i class="fas fa-dollar-sign"></i>
+                    Estimated Fare: <span id="fareEstimate">$25</span>
+                </div>
+            </div>
+            <div class="action-buttons">
+                <button class="accept-btn" onclick="acceptRide()">
+                    <i class="fas fa-check"></i> ACCEPT
+                </button>
+                <button class="reject-btn" onclick="rejectRide()">
+                    <i class="fas fa-times"></i> REJECT
+                </button>
+            </div>
+        </div>
+
+        <!-- Active Ride -->
+        <div class="active-ride" id="activeRide">
+            <div class="customer-info">
+                <div class="customer-avatar">JD</div>
+                <div>
+                    <h4>John Doe</h4>
+                    <p>⭐ 4.8 (125 rides)</p>
+                </div>
+            </div>
+            <div class="location pickup">
+                <i class="fas fa-circle" style="color: #27ae60;"></i>
+                <span>Pickup: 123 Main Street</span>
+            </div>
+            <div class="location destination">
+                <i class="fas fa-map-marker-alt" style="color: #e74c3c;"></i>
+                <span>Destination: 456 Downtown Ave</span>
+            </div>
+            <div class="ride-controls">
+                <button class="accept-btn" onclick="startRide()">
+                    <i class="fas fa-play"></i> START RIDE
+                </button>
+                <button class="reject-btn" onclick="cancelRide()">
+                    <i class="fas fa-times"></i> CANCEL
+                </button>
+            </div>
+        </div>
+
+        <!-- Earnings -->
+        <div class="earnings-card">
+            <h3>Today's Earnings</h3>
+            <div class="earning-item">
+                <span>Completed Rides:</span>
+                <span>8</span>
+            </div>
+            <div class="earning-item">
+                <span>Total Earnings:</span>
+                <span style="color: #27ae60; font-weight: bold;">$186.50</span>
+            </div>
+            <div class="earning-item">
+                <span>Online Time:</span>
+                <span>4h 23m</span>
+            </div>
+        </div>
+
+        <!-- Bottom Navigation -->
+        <div class="bottom-nav">
+            <div class="nav-item active">
+                <i class="fas fa-home"></i>
+                <div class="nav-text">Home</div>
+            </div>
+            <div class="nav-item">
+                <i class="fas fa-chart-line"></i>
+                <div class="nav-text">Earnings</div>
+            </div>
+            <div class="nav-item">
+                <i class="fas fa-history"></i>
+                <div class="nav-text">Rides</div>
+            </div>
+            <div class="nav-item">
+                <i class="fas fa-user"></i>
+                <div class="nav-text">Profile</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isOnline = true;
+        let hasActiveRide = false;
+
+        function toggleStatus() {
+            const toggleBtn = document.getElementById('statusToggle');
+            isOnline = !isOnline;
+            
+            if (isOnline) {
+                toggleBtn.innerHTML = '<i class="fas fa-circle"></i> ONLINE';
+                toggleBtn.classList.remove('offline');
+                simulateRideRequest();
+            } else {
+                toggleBtn.innerHTML = '<i class="fas fa-circle"></i> OFFLINE';
+                toggleBtn.classList.add('offline');
+                document.getElementById('rideRequest').style.display = 'none';
+            }
+        }
+
+        function simulateRideRequest() {
+            if (isOnline && !hasActiveRide) {
+                setTimeout(() => {
+                    document.getElementById('rideRequest').style.display = 'block';
+                }, 3000);
+            }
+        }
+
+        function acceptRide() {
+            document.getElementById('rideRequest').style.display = 'none';
+            document.getElementById('activeRide').style.display = 'block';
+            hasActiveRide = true;
+            
+            // Update map for active ride
+            document.getElementById('map').innerHTML = `
+                <div style="color: white; text-align: center; padding-top: 120px;">
+                    <i class="fas fa-user" style="font-size: 48px; margin-bottom: 20px;"></i>
+                    <p>Picking up John Doe...</p>
+                </div>
+            `;
+        }
+
+        function rejectRide() {
+            document.getElementById('rideRequest').style.display = 'none';
+            // Simulate new request after some time
+            setTimeout(simulateRideRequest, 5000);
+        }
+
+        function startRide() {
+            document.getElementById('map').innerHTML = `
+                <div style="color: white; text-align: center; padding-top: 120px;">
+                    <i class="fas fa-car-side" style="font-size: 48px; margin-bottom: 20px;"></i>
+                    <p>On trip to destination...</p>
+                </div>
+            `;
+            
+            // Simulate ride completion
+            setTimeout(completeRide, 10000);
+        }
+
+        function cancelRide() {
+            document.getElementById('activeRide').style.display = 'none';
+            hasActiveRide = false;
+            document.getElementById('map').innerHTML = `
+                <div style="color: white; text-align: center; padding-top: 120px;">
+                    <i class="fas fa-car" style="font-size: 48px; margin-bottom: 20px;"></i>
+                    <p>Waiting for ride requests...</p>
+                </div>
+            `;
+        }
+
+        function completeRide() {
+            document.getElementById('activeRide').style.display = 'none';
+            hasActiveRide = false;
+            alert('Ride completed! $25.00 earned');
+            document.getElementById('map').innerHTML = `
+                <div style="color: white; text-align: center; padding-top: 120px;">
+                    <i class="fas fa-car" style="font-size: 48px; margin-bottom: 20px;"></i>
+                    <p>Waiting for ride requests...</p>
+                </div>
+            `;
+            
+            // Simulate new request
+            setTimeout(simulateRideRequest, 3000);
+        }
+
+        // Simulate first ride request
+        setTimeout(simulateRideRequest, 5000);
+    </script>
+</body>
+</html>

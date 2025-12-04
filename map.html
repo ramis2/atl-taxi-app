@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaxiGo Dispatch - Live Map</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #2c3e50;
+            --secondary: #3498db;
+            --success: #27ae60;
+            --warning: #f39c12;
+            --danger: #e74c3c;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f8f9fa;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 250px 1fr;
+            min-height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            background: var(--primary);
+            color: white;
+            padding: 20px 0;
+        }
+
+        .logo {
+            padding: 25px 20px;
+            border-bottom: 1px solid #34495e;
+            text-align: center;
+        }
+
+        .logo h1 {
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .nav-item {
+            padding: 15px 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            border-left: 4px solid transparent;
+        }
+
+        .nav-item:hover, .nav-item.active {
+            background: #34495e;
+            border-left-color: var(--secondary);
+        }
+
+        /* Main Content */
+        .main-content {
+            padding: 20px;
+            background: #f8f9fa;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: var(--secondary);
+            color: white;
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        /* Map Container */
+        .map-container {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+            height: calc(100vh - 120px);
+            position: relative;
+        }
+
+        #map {
+            height: 100%;
+            width: 100%;
+            border-radius: 10px;
+        }
+
+        /* Map Controls */
+        .map-controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .map-control-btn {
+            background: white;
+            border: none;
+            padding: 12px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .map-control-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+
+        /* Driver List Panel */
+        .driver-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            width: 300px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .panel-header {
+            background: var(--primary);
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px 10px 0 0;
+        }
+
+        .driver-list {
+            padding: 15px;
+        }
+
+        .driver-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .driver-item:hover {
+            background: #f8f9fa;
+        }
+
+        .driver-avatar {
+            width: 40px;
+            height: 40px;
+            background: var(--warning);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+
+        .driver-info h4 {
+            margin-bottom: 4px;
+            color: var(--primary);
+        }
+
+        .driver-stats {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .driver-status {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: bold;
+            margin-left: auto;
+        }
+
+        .status-online {
+            background: #d5f4e6;
+            color: var(--success);
+        }
+
+        .status-riding {
+            background: #d6eaf8;
+            color: var(--secondary);
+        }
+
+        /* Ride Requests Panel */
+        .rides-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            z-index: 1000;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            width: 350px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .ride-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .ride-avatar {
+            width: 40px;
+            height: 40px;
+            background: var(--secondary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+
+        .ride-info h4 {
+            margin-bottom: 4px;
+            color: var(--primary);
+        }
+
+        .ride-route {
+            color: #666;
+            font-size: 0.9em;
+            margin-bottom: 4px;
+        }
+
+        .ride-waiting {
+            color: var(--danger);
+            font-size: 0.8em;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .ride-actions {
+            margin-left: auto;
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 0.8em;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .btn-assign {
+            background: var(--success);
+            color: white;
+        }
+
+        /* Custom Map Markers */
+        .driver-marker {
+            background: var(--success);
+            border: 3px solid white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+
+        .driver-marker.riding {
+            background: var(--secondary);
+        }
+
+        .ride-marker {
+            background: var(--danger);
+            border: 3px solid white;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+
+        /* Legend */
+        .map-legend {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            border: 2px solid white;
+        }
+
+        .legend-online { background: var(--success); }
+        .legend-riding { background: var(--secondary); }
+        .legend-request { background: var(--danger); }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="logo">
+                <h1>🚖 TaxiGo Dispatch</h1>
+            </div>
+            <div class="nav-item">
+                <i class="fas fa-tachometer-alt"></i>
+                Dashboard
+            </div>
+            <div class="nav-item active">
+                <i class="fas fa-map"></i>
+                Live Map
+            </div>
+            <div class="nav-item">
+                <i class="fas fa-car"></i>
+                Drivers
+            </div>
+            <div class="nav-item">
+                <i class="fas fa-users"></i>
+                Customers
+            </div>
+            <div class="nav-item">
+                <i class="fas fa-list"></i>
+                Rides
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Header -->
+            <div class="header">
+                <h2>Live Dispatch Map</h2>
+                <div>
+                    <button class="btn btn-primary" id="refreshMap">
+                        <i class="fas fa-sync-alt"></i> Refresh Map
+                    </button>
+                </div>
+            </div>
+
+            <!-- Map Container -->
+            <div class="map-container">
+                <div id="map"></div>
+                
+                <!-- Map Controls -->
+                <div class="map-controls">
+                    <button class="map-control-btn" id="locateMe">
+                        <i class="fas fa-crosshairs"></i> My Location
+                    </button>
+                    <button class="map-control-btn" id="zoomIn">
+                        <i class="fas fa-plus"></i> Zoom In
+                    </button>
+                    <button class="map-control-btn" id="zoomOut">
+                        <i class="fas fa-minus"></i> Zoom Out
+                    </button>
+                    <button class="map-control-btn" id="toggleDrivers">
+                        <i class="fas fa-car"></i> Hide Drivers
+                    </button>
+                    <button class="map-control-btn" id="toggleRides">
+                        <i class="fas fa-map-marker-alt"></i> Hide Rides
+                    </button>
+                </div>
+
+                <!-- Driver List Panel -->
+                <div class="driver-panel">
+                    <div class="panel-header">
+                        <h3>Available Drivers (6)</h3>
+                    </div>
+                    <div class="driver-list">
+                        <div class="driver-item" data-driver="MA">
+                            <div class="driver-avatar">MA</div>
+                            <div class="driver-info">
+                                <h4>Mike Anderson</h4>
+                                <div class="driver-stats">⭐ 4.8 • 5 min away</div>
+                            </div>
+                            <div class="driver-status status-online">Online</div>
+                        </div>
+                        <div class="driver-item" data-driver="ED">
+                            <div class="driver-avatar">ED</div>
+                            <div class="driver-info">
+                                <h4>Emily Davis</h4>
+                                <div class="driver-stats">⭐ 4.7 • 3 min away</div>
+                            </div>
+                            <div class="driver-status status-riding">On Ride</div>
+                        </div>
+                        <div class="driver-item" data-driver="TS">
+                            <div class="driver-avatar">TS</div>
+                            <div class="driver-info">
+                                <h4>Tom Smith</h4>
+                                <div class="driver-stats">⭐ 4.6 • 7 min away</div>
+                            </div>
+                            <div class="driver-status status-online">Online</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Ride Requests Panel -->
+                <div class="rides-panel">
+                    <div class="panel-header">
+                        <h3>Active Ride Requests (3)</h3>
+                    </div>
+                    <div class="driver-list">
+                        <div class="ride-item" data-ride="1">
+                            <div class="ride-avatar">JD</div>
+                            <div class="ride-info">
+                                <h4>John Doe</h4>
+                                <div class="ride-route">123 Main St → Downtown</div>
+                                <div class="ride-waiting">
+                                    <i class="fas fa-clock"></i> 5min waiting
+                                </div>
+                            </div>
+                            <div class="ride-actions">
+                                <button class="btn-sm btn-assign">Assign</button>
+                            </div>
+                        </div>
+                        <div class="ride-item" data-ride="2">
+                            <div class="ride-avatar">SJ</div>
+                            <div class="ride-info">
+                                <h4>Sarah Johnson</h4>
+                                <div class="ride-route">Park Ave → City Mall</div>
+                                <div class="ride-waiting">
+                                    <i class="fas fa-clock"></i> 3min waiting
+                                </div>
+                            </div>
+                            <div class="ride-actions">
+                                <button class="btn-sm btn-assign">Assign</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Map Legend -->
+                <div class="map-legend">
+                    <h4>Map Legend</h4>
+                    <div class="legend-item">
+                        <div class="legend-color legend-online"></div>
+                        <span>Available Drivers</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color legend-riding"></div>
+                        <span>Drivers on Ride</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color legend-request"></div>
+                        <span>Ride Requests</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JavaScript -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Initialize the map
+        const map = L.map('map').setView([40.7128, -74.0060], 13); // New York coordinates
+
+        // Add OpenStreetMap tiles (FREE - no API key needed)
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 19
+        }).addTo(map);
+
+        // Sample data for drivers and rides
+        const drivers = [
+            { id: 'MA', name: 'Mike Anderson', lat: 40.7128, lng: -74.0060, status: 'online', rating: 4.8 },
+            { id: 'ED', name: 'Emily Davis', lat: 40.7214, lng: -74.0052, status: 'riding', rating: 4.7 },
+            { id: 'TS', name: 'Tom Smith', lat: 40.7082, lng: -74.0150, status: 'online', rating: 4.6 },
+            { id: 'RJ', name: 'Robert Johnson', lat: 40.7189, lng: -73.9900, status: 'online', rating: 4.9 },
+            { id: 'KW', name: 'Karen Wilson', lat: 40.7056, lng: -74.0081, status: 'riding', rating: 4.8 },
+            { id: 'MB', name: 'Michael Brown', lat: 40.7282, lng: -74.0026, status: 'online', rating: 4.5 }
+        ];
+
+        const rideRequests = [
+            { id: 1, customer: 'John Doe', pickup: [40.7135, -74.0095], destination: [40.7505, -73.9934] },
+            { id: 2, customer: 'Sarah Johnson', pickup: [40.7245, -73.9985], destination: [40.7589, -73.9851] },
+            { id: 3, customer: 'Mike Johnson', pickup: [40.7050, -74.0110], destination: [40.7414, -73.9896] }
+        ];
+
+        // Create marker groups
+        const driverMarkers = L.layerGroup().addTo(map);
+        const rideMarkers = L.layerGroup().addTo(map);
+
+        // Add drivers to map
+        drivers.forEach(driver => {
+            const marker = L.marker([driver.lat, driver.lng])
+                .bindPopup(`
+                    <div style="text-align: center;">
+                        <strong>${driver.name}</strong><br>
+                        ⭐ ${driver.rating} • ${driver.status === 'online' ? 'Available' : 'On Ride'}<br>
+                        <small>Click to assign ride</small>
+                    </div>
+                `);
+            
+            // Add custom icon based on status
+            const icon = L.divIcon({
+                className: `driver-marker ${driver.status === 'riding' ? 'riding' : ''}`,
+                html: '<i class="fas fa-car" style="color: white; font-size: 10px; margin-top: 3px;"></i>',
+                iconSize: [24, 24]
+            });
+            
+            marker.setIcon(icon);
+            driverMarkers.addLayer(marker);
+        });
+
+        // Add ride requests to map
+        rideRequests.forEach(ride => {
+            const marker = L.marker(ride.pickup)
+                .bindPopup(`
+                    <div style="text-align: center;">
+                        <strong>${ride.customer}</strong><br>
+                        <small>Waiting for driver assignment</small><br>
+                        <button onclick="assignDriver(${ride.id})" style="margin-top: 8px; padding: 5px 10px; background: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                            Assign Driver
+                        </button>
+                    </div>
+                `);
+            
+            const icon = L.divIcon({
+                className: 'ride-marker',
+                html: '<i class="fas fa-user" style="color: white; font-size: 8px; margin-top: 2px;"></i>',
+                iconSize: [20, 20]
+            });
+            
+            marker.setIcon(icon);
+            rideMarkers.addLayer(marker);
+        });
+
+        // Map control functions
+        document.getElementById('locateMe').addEventListener('click', () => {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(position => {
+                    const { latitude, longitude } = position.coords;
+                    map.setView([latitude, longitude], 15);
+                    
+                    // Add user location marker
+                    L.marker([latitude, longitude])
+                        .addTo(map)
+                        .bindPopup('Your Location')
+                        .openPopup();
+                });
+            } else {
+                alert('Geolocation is not supported by this browser.');
+            }
+        });
+
+        document.getElementById('zoomIn').addEventListener('click', () => {
+            map.zoomIn();
+        });
+
+        document.getElementById('zoomOut').addEventListener('click', () => {
+            map.zoomOut();
+        });
+
+        document.getElementById('toggleDrivers').addEventListener('click', function() {
+            if (map.hasLayer(driverMarkers)) {
+                map.removeLayer(driverMarkers);
+                this.innerHTML = '<i class="fas fa-car"></i> Show Drivers';
+            } else {
+                map.addLayer(driverMarkers);
+                this.innerHTML = '<i class="fas fa-car"></i> Hide Drivers';
+            }
+        });
+
+        document.getElementById('toggleRides').addEventListener('click', function() {
+            if (map.hasLayer(rideMarkers)) {
+                map.removeLayer(rideMarkers);
+                this.innerHTML = '<i class="fas fa-map-marker-alt"></i> Show Rides';
+            } else {
+                map.addLayer(rideMarkers);
+                this.innerHTML = '<i class="fas fa-map-marker-alt"></i> Hide Rides';
+            }
+        });
+
+        document.getElementById('refreshMap').addEventListener('click', () => {
+            // Simulate updating driver positions
+            drivers.forEach(driver => {
+                // Add small random movement to simulate live updates
+                driver.lat += (Math.random() - 0.5) * 0.001;
+                driver.lng += (Math.random() - 0.5) * 0.001;
+            });
+            
+            // Clear and re-add markers
+            driverMarkers.clearLayers();
+            drivers.forEach(driver => {
+                const marker = L.marker([driver.lat, driver.lng])
+                    .bindPopup(`
+                        <div style="text-align: center;">
+                            <strong>${driver.name}</strong><br>
+                            ⭐ ${driver.rating} • ${driver.status === 'online' ? 'Available' : 'On Ride'}
+                        </div>
+                    `);
+                
+                const icon = L.divIcon({
+                    className: `driver-marker ${driver.status === 'riding' ? 'riding' : ''}`,
+                    html: '<i class="fas fa-car" style="color: white; font-size: 10px; margin-top: 3px;"></i>',
+                    iconSize: [24, 24]
+                });
+                
+                marker.setIcon(icon);
+                driverMarkers.addLayer(marker);
+            });
+
+            alert('Map refreshed! Driver positions updated.');
+        });
+
+        // Assign driver function
+        window.assignDriver = function(rideId) {
+            const ride = rideRequests.find(r => r.id === rideId);
+            const availableDrivers = drivers.filter(d => d.status === 'online');
+            
+            if (availableDrivers.length > 0) {
+                const driver = availableDrivers[0];
+                alert(`Assigned ${driver.name} to ride ${rideId}`);
+                
+                // In real app, you would update the backend here
+                console.log(`Assigned ${driver.name} to ${ride.customer}`);
+            } else {
+                alert('No available drivers at the moment!');
+            }
+        };
+
+        // Make driver items clickable
+        document.querySelectorAll('.driver-item').forEach(item => {
+            item.addEventListener('click', function() {
+                const driverId = this.dataset.driver;
+                const driver = drivers.find(d => d.id === driverId);
+                if (driver) {
+                    map.setView([driver.lat, driver.lng], 16);
+                    
+                    // Find and open the marker popup
+                    driverMarkers.eachLayer(layer => {
+                        const latLng = layer.getLatLng();
+                        if (latLng.lat === driver.lat && latLng.lng === driver.lng) {
+                            layer.openPopup();
+                        }
+                    });
+                }
+            });
+        });
+
+        // Make ride items clickable
+        document.querySelectorAll('.ride-item').forEach(item => {
+            item.addEventListener('click', function() {
+                const rideId = this.dataset.ride;
+                const ride = rideRequests.find(r => r.id == rideId);
+                if (ride) {
+                    map.setView(ride.pickup, 16);
+                    
+                    // Find and open the marker popup
+                    rideMarkers.eachLayer(layer => {
+                        const latLng = layer.getLatLng();
+                        if (latLng.lat === ride.pickup[0] && latLng.lng === ride.pickup[1]) {
+                            layer.openPopup();
+                        }
+                    });
+                }
+            });
+        });
+
+        // Add assign buttons functionality
+        document.querySelectorAll('.btn-assign').forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const rideItem = this.closest('.ride-item');
+                const rideId = rideItem.dataset.ride;
+                assignDriver(parseInt(rideId));
+            });
+        });
+
+       <div class="legend-item">
+    <div class="legend-color legend-request"></div>
+    <span>Ride Pickups</span>
+</div>
+<div class="legend-item">
+    <div class="legend-color" style="background: #9b59b6;"></div>
+    <span>Ride Destinations</span>
+</div>
+
+       
+        console.log('🚖 TaxiGo Live Map Loaded Successfully!');
+        console.log('✅ Features:');
+        console.log('   - Interactive OpenStreetMap');
+        console.log('   - Live driver locations');
+        console.log('   - Ride request markers');
+        console.log('   - Real-time updates');
+        console.log('   - Click-to-assign functionality');
+    </script>
+</body>
+</html>
